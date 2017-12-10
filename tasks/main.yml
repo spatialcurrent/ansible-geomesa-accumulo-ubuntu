@@ -1,0 +1,135 @@
+---
+
+- name: "Download Files"
+  become: yes
+  become_user: root
+  get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+    checksum: "{{ item.checksum }}"
+  with_items:
+    - url: "{{ GEOMESA_URL }}"
+      dest: "{{ GEOMESA_DEST }}"
+      checksum: "{{ GEOMESA_CHECKSUM }}"
+
+- name: "Unpack GeoMesa"
+  become: yes
+  become_user: root
+  unarchive:
+    src: "{{ GEOMESA_DEST }}"
+    dest: "/opt"
+    copy: no
+
+- name: "Force owner for geomesa to root"
+  become: yes
+  become_user: root
+  file:
+    path: "/opt/geomesa-accumulo_2.11-1.3.1"
+    state: directory
+    recurse: yes
+    owner: root
+    group: root
+
+- name: "Copy GeoMesa Accumulo Runtime into Accumulo"
+  become: yes
+  become_user: "{{ ACCUMULO_USER }}"
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ ACCUMULO_USER }}"
+    group: "{{ ACCUMULO_USER }}"
+    mode: 0644
+    remote_src: True
+  with_items:
+    - src: "/opt/geomesa-accumulo_2.11-1.3.1/dist/accumulo/geomesa-accumulo-distributed-runtime_2.11-1.3.1.jar"
+      dest: "{{ ACCUMULO_LIB }}/ext/geomesa-accumulo-distributed-runtime_2.11-1.3.1.jar"
+
+- name: "Ensure {{ GEOMESA_HOME }} exists"
+  become: yes
+  become_user: root
+  file:
+    path: "{{ GEOMESA_HOME }}"
+    state: directory
+
+- name: "Copy GeoMesa from /opt/geomesa-accumulo_2.11-1.3.1 into {{ GEOMESA_HOME }}."
+  become: yes
+  become_user: root
+  shell: "cp -R /opt/geomesa-accumulo_2.11-1.3.1/* {{ GEOMESA_HOME }}/"
+
+- name: Create GeoMesa Group
+  become: yes
+  become_user: root
+  user:
+    name: "{{ GEOMESA_USER }}"
+    state: present
+
+- name: Create GeoMesa User
+  become: yes
+  become_user: root
+  user:
+    name: "{{ GEOMESA_USER }}"
+    state: present
+    group: "{{ GEOMESA_USER }}"
+    home: "{{ GEOMESA_HOME }}"
+    shell: /bin/bash
+
+- name: "Configure GeoMesa ~/.profile"
+  become: yes
+  become_user: root
+  copy:
+    src: profile
+    dest: "{{ GEOMESA_HOME }}/.profile"
+    owner: "{{ GEOMESA_USER }}"
+    group: "{{ GEOMESA_USER }}"
+    mode: 0755
+
+- name: "Configure GeoMesa ~/.bashrc"
+  become: yes
+  become_user: root
+  template:
+    src: bashrc.j2
+    dest: "{{ GEOMESA_HOME }}/.bashrc"
+    owner: "{{ GEOMESA_USER }}"
+    group: "{{ GEOMESA_USER }}"
+    mode: 0755
+
+- name: "mkdir ~/scripts"
+  become: yes
+  become_user: root
+  file:
+    path: "{{ GEOMESA_HOME }}/scripts"
+    owner: "{{ GEOMESA_USER }}"
+    group: "{{ GEOMESA_USER }}"
+    state: "directory"
+    mode: 0755
+
+- name: "Check owner is {{ GEOMESA_USER }}"
+  become: yes
+  become_user: root
+  file:
+    path: "{{ GEOMESA_HOME }}"
+    state: directory
+    recurse: yes
+    owner: "{{ GEOMESA_USER }}"
+    group: "{{ GEOMESA_USER }}"
+
+- name: "Patch geomesa scripts"
+  become: yes
+  become_user: "{{ GEOMESA_USER }}"
+  lineinfile:
+    dest: "{{ item.dest }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - dest: "{{ GEOMESA_HOME }}/bin/geomesa"
+      regexp: "#!(\\s*)"
+      line: "#!/bin/bash"
+    - dest: "{{ GEOMESA_HOME }}/bin/geomesa"
+      regexp: "(\\s+)export(\\s+)GEOMESA_ACCUMULO_HOME="
+      line: " export GEOMESA_ACCUMULO_HOME={{ GEOMESA_HOME }}"
+    - dest: "{{ GEOMESA_HOME }}/bin/common-functions.sh"
+      regexp: "#!(\\s*)"
+      line: "#!/bin/bash"
+    - dest: "{{ GEOMESA_HOME }}/bin/common-functions.sh"
+      regexp: "(\\s*)GEOMESA_OPTS=\"-Duser[.]timezone=UTC(\\s+)-DEPSG-HSQL[.]directory=(.+)"
+      line: "GEOMESA_OPTS=\"-Duser.timezone=UTC -DEPSG-HSQL.directory=/tmp/{{ GEOMESA_USER }}\""

@@ -1,0 +1,7 @@
+export JAVA_HOME={{ HADOOP_JAVA_HOME }}
+export HADOOP_HOME={{ HADOOP_HOME }}
+export HADOOP_CONF_DIR={{ HADOOP_HOME }}/etc/hadoop
+export ACCUMULO_HOME={{ ACCUMULO_HOME }}
+export ACCUMULO_PASSWORD={{ ACCUMULO_PASSWORD }}
+export GEOMESA_OPTS="-u root -p {{ ACCUMULO_PASSWORD }}"
+export CUSTOM_JAVA_OPTS="-Dinstance.zookeeper.timeout=60000 -Dgeomesa.convert.scripts.path={{ GEOMESA_HOME }}/scripts"
