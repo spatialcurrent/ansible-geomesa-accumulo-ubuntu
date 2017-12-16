@@ -1,16 +1,12 @@
 ---
 
-- name: "Download Files"
+- name: "Download GeoMesa Runtime"
   become: yes
   become_user: root
   get_url:
-    url: "{{ item.url }}"
-    dest: "{{ item.dest }}"
-    checksum: "{{ item.checksum }}"
-  with_items:
-    - url: "{{ GEOMESA_URL }}"
-      dest: "{{ GEOMESA_DEST }}"
-      checksum: "{{ GEOMESA_CHECKSUM }}"
+    url: "{{ GEOMESA_URL }}"
+    dest: "{{ GEOMESA_DEST }}"
+    checksum: "{{ GEOMESA_CHECKSUM }}"
 
 - name: "Unpack GeoMesa"
   become: yes
